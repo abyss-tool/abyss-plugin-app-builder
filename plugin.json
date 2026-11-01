@@ -1,0 +1,29 @@
+{
+  "id": "abyss-plugin-app-builder",
+  "name": "应用构建器",
+  "version": "0.1.0",
+  "minHost": 1,
+  "minApp": "0.2.0",
+  "category": "dev",
+  "summary": "手机端 APK 构建器：Alpine + PRoot 底座，Anpyra / 内置工具链 / 标准 Gradle 三条路径自由选择，失败可切换，支持独立 Shizuku 授权。",
+  "icon": "🏗",
+  "permissions": [
+    "FOREGROUND_SERVICE",
+    "WAKE_LOCK",
+    "REQUEST_INSTALL_PACKAGES"
+  ],
+  "shizuku": {
+    "ownAuth": true,
+    "reason": "构建底座（Alpine + PRoot）经 Shizuku 的 ADB shell 上下文启动，绕过 ColorOS 等厂商对普通应用 ptrace 的限制；本插件为独立 APK，按 Shizuku per-app 授权机制需单独授权一次。"
+  },
+  "entry": "com.abyss.plugin.appbuilder.AppBuilderPlugin",
+  "repo": "abyss-tool/abyss-plugin-app-builder",
+  "patchChannel": "https://raw.githubusercontent.com/abyss-tool/abyss-plugin-app-builder/main/patches/index.json",
+  "roadmap": [
+    "v0.2 底座拉起：Alpine rootfs + PRoot 可用性探测（Shizuku 优先，纯 PRoot 降级）",
+    "v0.3 路径一：Anpyra 纯 Python 构建（轻量项目）",
+    "v0.4 路径二：内置工具链 aapt2 + 固定壳 DEX（资源 / HTML 打包）",
+    "v0.5 路径三：标准 Gradle 构建（ARM64 工具链 + 资源约束）",
+    "v0.6 三选一交互层：预检提示 / 推荐标记 / 失败切换 / 底座隔离"
+  ]
+}
