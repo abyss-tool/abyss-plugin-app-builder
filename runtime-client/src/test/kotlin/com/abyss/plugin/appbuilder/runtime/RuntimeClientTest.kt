@@ -32,7 +32,7 @@ class HandshakeGuideTest {
     }
 
     @Test
-    fun `Shizuku 未安装 / 未运行 - 启动引导`() {
+    fun `Shizuku 未安装或未运行 - 启动引导`() {
         listOf("NOT_INSTALLED", "NOT_RUNNING").forEach { state ->
             val g = HandshakeGuide.route(green.copy(shizukuState = state))
             assertEquals(HandshakeGuide.FailureKind.AUTH_NEEDED, g!!.kind)
