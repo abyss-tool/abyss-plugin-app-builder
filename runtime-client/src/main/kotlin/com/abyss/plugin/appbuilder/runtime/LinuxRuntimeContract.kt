@@ -4,8 +4,8 @@ package com.abyss.plugin.appbuilder.runtime
  * Linux 运行时客户端契约（客户端侧镜像 —— 主仓 plugin-sdk HOST_API v2
  * 与 abyss-plugin-linux :runtime-api 契约的动作串/能力 id 消费视图）。
  *
- * 纪律（ARC-103 / DC-101 FR-006）：客户端不持有 `ILinuxRuntime`（宿主
- * 专属全权接口）；唯一可持有的会话句柄经宿主中介下发（受限代理）。
+ * 纪律（ARC-103 / DC-101 FR-006）：客户端不持有宿主专属的运行时全权
+ * 接口；唯一可持有的会话句柄经宿主中介下发（受限代理）。
  */
 object LinuxRuntimeContract {
 

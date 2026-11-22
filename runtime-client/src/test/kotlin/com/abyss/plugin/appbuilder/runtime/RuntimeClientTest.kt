@@ -14,7 +14,7 @@ class HandshakeGuideTest {
         pluginVersion = "0.2.0",
         assetsReady = true,
         shizukuState = "GRANTED",
-        probeSummary = "uid2000",
+        probeBlocked = false,
     )
 
     @Test
@@ -58,12 +58,11 @@ class HandshakeGuideTest {
 
     @Test
     fun `探测被拦 - 切域选项（含耗时与存储预期，E2E-08）`() {
-        listOf("PROOT_BLOCKED", "PLATFORM_BLOCKED").forEach { probe ->
-            val g = HandshakeGuide.route(green.copy(probeSummary = probe))
-            assertEquals(HandshakeGuide.FailureKind.PROBE_BLOCKED, g!!.kind)
-            assertTrue(g.humanMessage.contains("1–3 分钟"))
-            assertTrue(g.humanMessage.contains("3–8 倍"))
-        }
+        // 探测被平台拦截（适配层折叠为 probeBlocked 布尔）
+        val g = HandshakeGuide.route(green.copy(probeBlocked = true))
+        assertEquals(HandshakeGuide.FailureKind.PROBE_BLOCKED, g!!.kind)
+        assertTrue(g.humanMessage.contains("1–3 分钟"))
+        assertTrue(g.humanMessage.contains("3–8 倍"))
     }
 
     @Test

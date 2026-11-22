@@ -10,13 +10,18 @@ package com.abyss.plugin.appbuilder.runtime
  */
 object HandshakeGuide {
 
-    /** 运行时快照（客户端消费视图 —— 镜像 :runtime-api RuntimeInfo 首帧）。 */
+    /**
+     * 运行时快照（客户端消费视图 —— AIDL 适配层把 RuntimeInfo 首帧翻译
+     * 为本形态；探测摘要在适配层折叠为 [probeBlocked] 布尔 —— 客户端不
+     * 持有引擎字符串常量，ARC-101 FR-001）。
+     */
     data class RuntimeSnapshot(
         val pluginVersion: String = "",
         val assetsReady: Boolean = false,
         /** NOT_INSTALLED / NOT_RUNNING / NOT_GRANTED / GRANTED / REVOKED / STALE。 */
         val shizukuState: String = "NOT_INSTALLED",
-        val probeSummary: String = "",
+        /** 探测是否被平台拦截（适配层按探测摘要折叠）。 */
+        val probeBlocked: Boolean = false,
     )
 
     /** 握手失败类型（每类一个引导出口）。 */
@@ -61,11 +66,11 @@ object HandshakeGuide {
         if (!snapshot.assetsReady) {
             return Guidance(
                 FailureKind.ASSETS_NOT_READY,
-                "运行环境组件尚未下载完成 —— 请等待真实下载进度（rootfs / 工具链经大资产通道），期间不会启动构建",
+                "运行环境组件尚未下载完成 —— 请等待真实下载进度（用户空间与工具链经大资产通道），期间不会启动构建",
                 "进入运行环境资产页",
             )
         }
-        if (snapshot.probeSummary == "PROOT_BLOCKED" || snapshot.probeSummary == "PLATFORM_BLOCKED") {
+        if (snapshot.probeBlocked) {
             return Guidance(
                 FailureKind.PROBE_BLOCKED,
                 "当前系统限制探测（已知 ROM：ColorOS 15/16 约 1 分钟拦截 / 荣耀 MagicOS 内核拒绝）。可切换「完整系统域」（冷启动约 1–3 分钟、构建耗时约为当前 3–8 倍、需 X GB 存储）",
