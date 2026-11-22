@@ -4,12 +4,16 @@
 职责：
   1. 读取 make_patch.py 的 meta（sha256 / size / notes）；
   2. 在本插件仓库创建 `v<to>` Release（幂等）并上传 zip 资产（同名先删）；
-  3. 本地滚动 patches/index.json：新补丁条目置顶、latest → to
+  3. 本地滚动 patches/index.json：新补丁条目置顶、latest → to，随后产出
+     detached 签名 `patches/index.json.minisig`（N-SEC-001，M1 起 ——
+     客户端对插件补丁通道先验签再解析；签名材料缺失 → fail-closed 拒绝滚动）
      （提交由 patch-release.yml 的 git 步骤完成）。
 
 凭据：GITHUB_TOKEN 环境变量（Actions 默认令牌，contents:write 即可）。
+签名材料：--seed-file（CI secret RELEASE_SIGNING_KEY 原文 base64 单行）+
+--pubkey-file（与客户端 TRUSTED_KEYS 一致）。
 仓库坐标：GITHUB_REPOSITORY 环境变量（Actions 自动注入），缺省回退
-plugin.json.repo。纯 stdlib。
+plugin.json.repo。纯 stdlib + pynacl（minisign_py 同构副本）。
 """
 from __future__ import annotations
 
@@ -22,6 +26,9 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import minisign_py
 
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 API = "https://api.github.com"
@@ -67,10 +74,28 @@ def api(method: str, url: str, body: dict | None = None, raw: bytes | None = Non
 def main() -> None:
     parser = argparse.ArgumentParser(description="abyss 插件补丁发布")
     parser.add_argument("--meta", required=True, help="make_patch.py 生成的 meta.json 路径")
+    parser.add_argument("--seed-file", type=Path, default=None,
+                        help="清单签名私钥（raw seed base64 单行；CI secret RELEASE_SIGNING_KEY）")
+    parser.add_argument("--pubkey-file", type=Path, default=None,
+                        help="清单签名公钥文本（与客户端 TRUSTED_KEYS 一致）")
     args = parser.parse_args()
 
     if not TOKEN:
         die("GITHUB_TOKEN 未设置")
+    # N-SEC-001（M1 起）：补丁通道签名材料强制（fail-closed）
+    if not args.seed_file or not args.pubkey_file:
+        die("缺少清单签名材料：--seed-file / --pubkey-file 必须由 patch-release.yml 提供"
+            "（RELEASE_SIGNING_KEY secret）—— N-SEC-001 起补丁通道签名强制")
+    if not args.seed_file.is_file() or not args.pubkey_file.is_file():
+        die("清单签名材料文件不存在（seed / pubkey）")
+    try:
+        seed, keynum, _ = minisign_py.load_seed(
+            args.seed_file.read_text(encoding="utf-8"),
+            args.pubkey_file.read_text(encoding="utf-8"),
+        )
+    except minisign_py.MinisignError as e:
+        die(f"清单签名材料校验失败：{e}")
+    pub_text = args.pubkey_file.read_text(encoding="utf-8")
 
     meta = json.loads(Path(args.meta).read_text(encoding="utf-8"))
     pid = meta["plugin"]
@@ -150,10 +175,16 @@ def main() -> None:
     channel["latest"] = to
     channel["patches"] = patches[:20]
     channel["generatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    channel_path.write_text(
-        json.dumps(channel, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    print(f"[publish-patch] ✓ 补丁通道已滚动：latest=v{to} · {len(patches)} 条记录")
+    channel_text = json.dumps(channel, ensure_ascii=False, indent=2) + "\n"
+    channel_raw = channel_text.encode("utf-8")
+    # ── N-SEC-001：通道滚动后立即签名（写入字节 = 验签字节，无归一化）──
+    sig = minisign_py.sign_message(
+        seed, keynum, channel_raw, "signature from abyss release key", "patches/index.json")
+    if not minisign_py.verify(pub_text, sig, channel_raw):
+        die("patches/index.json.minisig 签名自验失败 —— 拒绝滚动（fail-closed）")
+    channel_path.write_text(channel_text, encoding="utf-8", newline="\n")
+    Path("patches/index.json.minisig").write_text(sig, encoding="ascii")
+    print(f"[publish-patch] ✓ 补丁通道已滚动并签名：latest=v{to} · {len(patches)} 条记录（.minisig 同 commit 上库）")
     print(f"[publish-patch] 元数据：sha256={meta['sha256']} · {meta['sizeBytes']} bytes")
 
 

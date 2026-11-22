@@ -11,6 +11,18 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import minisign_py
+
+# N-SEC-001：公钥唯一事实源 = 主仓 ChannelSignatureVerifier.kt TRUSTED_KEYS
+#（轮换走双公钥：新增不替换）。
+_TRUSTED_PUBKEYS = [
+    """
+    untrusted comment: Abyss-Tools manifest signing public key (meng4117222)
+    RWRx16ORC4gsdxs6DsnctDYagiRptPX1NgFcVpQNYqh/BXGhPAHebh3B
+    """,
+]
+
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 REQUIRED = ("id", "name", "repo", "category", "version", "minApp", "summary")
 CATEGORIES = {"terminal", "system", "sandbox", "disguise", "media",
@@ -81,6 +93,20 @@ for p in channel.get("patches", []):
     seen.add(key)
     if not p.get("url"):
         fail(f"补丁 {key} 缺 url")
+
+# ── N-SEC-001：补丁通道 detached 签名断言（存在必可验，缺失即拒）────
+_sig_path = Path("patches/index.json.minisig")
+if not _sig_path.exists():
+    fail("patches/index.json.minisig 缺失 —— N-SEC-001 起补丁通道签名强制"
+         "（由 patch-release.yml 以 RELEASE_SIGNING_KEY secret 原子产出；"
+         "客户端对补丁通道先验签再解析，无签名 = 不信任）")
+else:
+    _raw = Path("patches/index.json").read_bytes()
+    if not any(minisign_py.verify(pk, _sig_path.read_text(encoding="utf-8"), _raw)
+               for pk in _TRUSTED_PUBKEYS):
+        fail("patches/index.json.minisig 验签失败 —— 通道字节与签名不配对（公钥不匹配或清单被改）")
+    else:
+        print("[plugin-ci] ✓ 补丁通道 detached 签名验签通过")
 
 if errors:
     print(f"[plugin-ci] ✗ {len(errors)} 处校验失败：", file=sys.stderr)
