@@ -64,6 +64,10 @@ kotlin {
 }
 
 dependencies {
+    // ── 瘦客户端模块（ARC-103 §5）──────────────────────────────
+    implementation(project(":runtime-client"))
+    implementation(project(":precheck"))
+
     // M1 切片零外部依赖：契约以镜像副本内置（唯一事实源 = 主仓 plugin-sdk，
     // v0.2 AIDL 桥接入后改经发布工件）；UI 为最小 Compose 免依赖薄壳。
     testImplementation(kotlin("test"))
