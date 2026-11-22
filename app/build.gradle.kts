@@ -10,8 +10,9 @@ android {
     defaultConfig {
         applicationId = "com.abyss.plugin.appbuilder"
         minSdk = 26
-        // targetSdk 钉 28：构建底座（PRoot/ptrace）依赖 W^X 宽松执行环境，
-        // 与主壳同款红线（ADR-003）—— 升 target 属 breaking，另册评估。
+        // targetSdk 钉 28：组织统一红线（主壳 ADR-003 同款决策）——
+        // 执行域的 W^X 依赖已由 abyss-plugin-linux 仓承载；升 target 属
+        // breaking，另册评估。
         targetSdk = 28
         // 版本单一事实源 = 仓库根 plugin.json "version"（CI 门禁校验一致）；
         // 构建期由 gradle 从 plugin.json 读取，避免第三处手写漂移。
@@ -63,6 +64,10 @@ kotlin {
 }
 
 dependencies {
+    // ── 瘦客户端模块（ARC-103 §5）──────────────────────────────
+    implementation(project(":runtime-client"))
+    implementation(project(":precheck"))
+
     // M1 切片零外部依赖：契约以镜像副本内置（唯一事实源 = 主仓 plugin-sdk，
     // v0.2 AIDL 桥接入后改经发布工件）；UI 为最小 Compose 免依赖薄壳。
     testImplementation(kotlin("test"))

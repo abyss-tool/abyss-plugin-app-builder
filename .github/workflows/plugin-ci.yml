@@ -20,6 +20,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pynacl (N-SEC-001 验签依赖)
+        run: pip install --quiet pynacl
+
       - name: Validate plugin manifest & patch channel
         run: |
           chmod +x tools/validate_plugin.py
