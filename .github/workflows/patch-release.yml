@@ -62,8 +62,8 @@ jobs:
           mkdir -p "$SIGNING_DIR"
           printf '%s' "$RELEASE_SIGNING_KEY" > "$SIGNING_DIR/seed.txt"
           cat > "$SIGNING_DIR/pubkey.txt" <<'PK'
-          untrusted comment: Abyss-Tools dev signing public key (M1, v0.10)
-          RWSWn6+V/umBvAHNeSekC6UjX5Tg0me06vgXgEPeJ88ulrP82fR94AYZ
+          untrusted comment: Abyss-Tools manifest signing public key (meng4117222)
+          RWRx16ORC4gsdxs6DsnctDYagiRptPX1NgFcVpQNYqh/BXGhPAHebh3B
           PK
           echo "SEED_FILE=$SIGNING_DIR/seed.txt" >> "$GITHUB_ENV"
           echo "PUBKEY_FILE=$SIGNING_DIR/pubkey.txt" >> "$GITHUB_ENV"

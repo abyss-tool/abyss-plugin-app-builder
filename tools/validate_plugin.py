@@ -18,8 +18,8 @@ import minisign_py
 #（轮换走双公钥：新增不替换）。
 _TRUSTED_PUBKEYS = [
     """
-    untrusted comment: Abyss-Tools dev signing public key (M1, v0.10)
-    RWSWn6+V/umBvAHNeSekC6UjX5Tg0me06vgXgEPeJ88ulrP82fR94AYZ
+    untrusted comment: Abyss-Tools manifest signing public key (meng4117222)
+    RWRx16ORC4gsdxs6DsnctDYagiRptPX1NgFcVpQNYqh/BXGhPAHebh3B
     """,
 ]
 
