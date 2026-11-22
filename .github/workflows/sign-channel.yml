@@ -1,0 +1,75 @@
+name: Sign Patch Channel
+
+# N-SEC-001 首签/补签：对当前 patches/index.json 产出 detached 签名
+# （patch-release 流水线滚动时自动签名；本 workflow 用于首次落地 /
+# 私钥轮换后的存量通道补签，幂等 —— 已有可验签名则跳过）。
+# 需要仓库 secret：RELEASE_SIGNING_KEY（raw Ed25519 seed base64 单行）。
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: sign-channel
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    name: Sign patches/index.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pynacl
+        run: pip install --quiet pynacl
+
+      - name: Prepare signing keys (N-SEC-001)
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            echo "::error::缺少 RELEASE_SIGNING_KEY secret（raw Ed25519 seed base64 单行）"
+            exit 1
+          fi
+          SIGNING_DIR="$RUNNER_TEMP/abyss-manifest-signing"
+          mkdir -p "$SIGNING_DIR"
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$SIGNING_DIR/seed.txt"
+          cat > "$SIGNING_DIR/pubkey.txt" <<'PK'
+          untrusted comment: Abyss-Tools dev signing public key (M1, v0.10)
+          RWSWn6+V/umBvAHNeSekC6UjX5Tg0me06vgXgEPeJ88ulrP82fR94AYZ
+          PK
+          echo "SEED_FILE=$SIGNING_DIR/seed.txt" >> "$GITHUB_ENV"
+          echo "PUBKEY_FILE=$SIGNING_DIR/pubkey.txt" >> "$GITHUB_ENV"
+
+      - name: Sign channel (idempotent)
+        run: |
+          if [ -f patches/index.json.minisig ] && python3 tools/minisign_py.py verify patches/index.json --pubkey-file "$PUBKEY_FILE"; then
+            echo "[sign] 通道已有可验签名，跳过（幂等）"
+            exit 0
+          fi
+          python3 tools/minisign_py.py sign patches/index.json \
+            --seed-file "$SEED_FILE" --pubkey-file "$PUBKEY_FILE" \
+            --trusted-comment "abyss-plugin-channel"
+          python3 tools/validate_plugin.py
+
+      - name: Commit signature
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add patches/index.json.minisig
+          if git diff --cached --quiet; then
+            echo "[sign] 无变化（签名已存在）"
+          else
+            git commit -m "chore(security): patches/index.json 首签/补签（N-SEC-001）[skip ci]"
+            git push
+            echo "[sign] ✓ 通道签名已入库"
+          fi

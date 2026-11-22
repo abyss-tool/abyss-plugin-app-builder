@@ -44,6 +44,30 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install pynacl (N-SEC-001 补丁通道签名)
+        run: pip install --quiet pynacl
+
+      # ── N-SEC-001 签名材料（fail-closed：缺 secret 拒绝发布）────────
+      # 公钥与客户端 TRUSTED_KEYS / 主仓 ChannelSignatureVerifier.kt 同步
+      # （唯一事实源 = 主仓 Kotlin 源）。
+      - name: Prepare manifest signing keys (N-SEC-001)
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            echo "::error::缺少 RELEASE_SIGNING_KEY secret（raw Ed25519 seed base64 单行）—— N-SEC-001 补丁通道签名强制"
+            exit 1
+          fi
+          SIGNING_DIR="$RUNNER_TEMP/abyss-manifest-signing"
+          mkdir -p "$SIGNING_DIR"
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$SIGNING_DIR/seed.txt"
+          cat > "$SIGNING_DIR/pubkey.txt" <<'PK'
+          untrusted comment: Abyss-Tools dev signing public key (M1, v0.10)
+          RWSWn6+V/umBvAHNeSekC6UjX5Tg0me06vgXgEPeJ88ulrP82fR94AYZ
+          PK
+          echo "SEED_FILE=$SIGNING_DIR/seed.txt" >> "$GITHUB_ENV"
+          echo "PUBKEY_FILE=$SIGNING_DIR/pubkey.txt" >> "$GITHUB_ENV"
+
       - name: Pack data patch (abyss-patch-v1)
         run: |
           NOTES_ARGS=""
@@ -53,12 +77,13 @@ jobs:
           done
           eval "python3 tools/make_patch.py --to '${{ inputs.to_version }}' $NOTES_ARGS"
 
-      - name: Publish release & roll patch channel
+      - name: Publish release & roll patch channel (signed)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           META=$(ls patches/data/*.meta.json | sort | tail -1)
-          python3 tools/publish_patch.py --meta "$META"
+          python3 tools/publish_patch.py --meta "$META" \
+            --seed-file "$SEED_FILE" --pubkey-file "$PUBKEY_FILE"
 
       - name: Validate manifests (three-way consistency)
         run: python3 tools/validate_plugin.py
@@ -67,7 +92,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add plugin.json CHANGELOG.md patches/index.json
+          git add plugin.json CHANGELOG.md patches/index.json patches/index.json.minisig
           if git diff --cached --quiet; then
             echo "[patch-release] 仓库事实源无变化（异常 —— 打包应已升版）"
             exit 1
