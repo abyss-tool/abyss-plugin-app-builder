@@ -1,6 +1,6 @@
 {
   "schema": "abyss-plugin-patches-v1",
   "plugin": "abyss-plugin-app-builder",
-  "latest": "0.1.0",
+  "latest": "0.2.0",
   "patches": []
 }
