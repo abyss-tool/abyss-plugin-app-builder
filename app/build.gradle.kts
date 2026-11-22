@@ -10,8 +10,9 @@ android {
     defaultConfig {
         applicationId = "com.abyss.plugin.appbuilder"
         minSdk = 26
-        // targetSdk 钉 28：构建底座（PRoot/ptrace）依赖 W^X 宽松执行环境，
-        // 与主壳同款红线（ADR-003）—— 升 target 属 breaking，另册评估。
+        // targetSdk 钉 28：组织统一红线（主壳 ADR-003 同款决策）——
+        // 执行域的 W^X 依赖已由 abyss-plugin-linux 仓承载；升 target 属
+        // breaking，另册评估。
         targetSdk = 28
         // 版本单一事实源 = 仓库根 plugin.json "version"（CI 门禁校验一致）；
         // 构建期由 gradle 从 plugin.json 读取，避免第三处手写漂移。
