@@ -4,20 +4,20 @@ plugins {
 }
 
 android {
-    namespace = "com.abyss.plugin.builder"
+    namespace = "com.abyss.plugin.appbuilder"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.abyss.plugin.builder"
+        applicationId = "com.abyss.plugin.appbuilder"
         minSdk = 26
         // targetSdk 钉 28：构建底座（PRoot/ptrace）依赖 W^X 宽松执行环境，
         // 与主壳同款红线（ADR-003）—— 升 target 属 breaking，另册评估。
         targetSdk = 28
         // 版本单一事实源 = 仓库根 plugin.json "version"（CI 门禁校验一致）；
         // 构建期由 gradle 从 plugin.json 读取，避免第三处手写漂移。
-        val manifestJson = file("../plugin.json").readText()
+        val manifestJson = runCatching { file("../plugin.json").readText() }.getOrDefault("{}")
         val version = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"")
-            .find(manifestJson)?.groupValues[1] ?: "0.1.0"
+            .find(manifestJson)?.groupValues?.getOrNull(1) ?: "0.1.0"
         versionName = version
         versionCode = 1
     }
@@ -50,11 +50,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     lint {
         disable += "ExpiredTargetSdkVersion"
+    }
+}
+
+// Kotlin 2.3 起 jvmTarget 必须走 compilerOptions DSL（kotlinOptions 已禁用）
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
