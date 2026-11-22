@@ -102,8 +102,9 @@ class GrantPolicyTest {
     }
 
     @Test
-    fun `提前量内刷新（expiry-30s）`() {
-        assertTrue(GrantPolicy.shouldRefresh(token, nowEpochMs = 270_001L))
+    fun `提前量内刷新（expiry-30s 边界）`() {
+        // 刷新线 = expiry - 30s = 271000；边界值恰达
+        assertTrue(GrantPolicy.shouldRefresh(token, nowEpochMs = 271_000L))
         assertTrue(GrantPolicy.shouldRefresh(token, nowEpochMs = 301_000L))
     }
 
