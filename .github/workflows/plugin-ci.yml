@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# 最小权限（与主仓 / linux / virus-guard 插件仓同款纪律）：CI 只读仓库内容。
+permissions:
+  contents: read
+
 concurrency:
   group: plugin-ci-${{ github.ref }}
   cancel-in-progress: true
@@ -24,6 +28,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      # ── 同类缺陷防御（B-01，与插件中心 hub-ci 同款收敛）：门禁脚本先过
+      #    语法编译再跑业务校验 —— tools/*.py 的 NameError 级缺陷不再能
+      #    以「业务数据恰好合法」的形态溜进 main。
+      - name: Python syntax pre-check (py_compile all tools)
+        run: python3 -m py_compile tools/*.py
 
       - name: Install pynacl (N-SEC-001 验签依赖)
         run: pip install --quiet pynacl
@@ -55,25 +65,6 @@ jobs:
       # 签名材料经 secrets 注入（N-APP-001 FR-004：插件独立 keystore）；
       # 缺失时 release 降级 unsigned —— 编译门禁照常，发布门禁由
       # Release 步骤的指纹校验兜底（与主仓 ci.yml 同模式）。
-      # ── 插件签名材料注入(N-APP-001 FR-004:PKCS12 经 secrets)────
-      # 缺失时保持 unsigned 兜底语义(编译门禁照常)
-      - name: Decode plugin keystore (secrets)
-        env:
-          ABYSS_PLUGIN_KEYSTORE_B64: ${{ secrets.ABYSS_PLUGIN_KEYSTORE_B64 }}
-        run: |
-          if [ -n "$ABYSS_PLUGIN_KEYSTORE_B64" ]; then
-            KS_DIR="$RUNNER_TEMP/abyss-plugin-signing"
-            mkdir -p "$KS_DIR"
-            printf '%s' "$ABYSS_PLUGIN_KEYSTORE_B64" | base64 -d > "$KS_DIR/plugin-release.p12"
-            echo "ABYSS_PLUGIN_KEYSTORE_FILE=$KS_DIR/plugin-release.p12" >> "$GITHUB_ENV"
-            echo "ABYSS_PLUGIN_KEYSTORE_PASSWORD=$ABYSS_PLUGIN_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
-            echo "ABYSS_PLUGIN_KEY_ALIAS=$ABYSS_PLUGIN_KEY_ALIAS" >> "$GITHUB_ENV"
-            echo "ABYSS_PLUGIN_KEY_PASSWORD=$ABYSS_PLUGIN_KEY_PASSWORD" >> "$GITHUB_ENV"
-            echo "插件签名材料已注入(PKCS12)"
-          else
-            echo "::warning::未配置 ABYSS_PLUGIN_KEYSTORE_B64 —— release 产 unsigned 包"
-          fi
-
       - name: Assemble debug + release（unsigned 兜底）
         run: gradle assembleDebug assembleRelease --stacktrace
 
@@ -85,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plugin-test-report
-          path: app/build/reports/tests/
+          path: '**/build/reports/tests/'
           if-no-files-found: ignore
 
       - name: Upload debug APK artifact
