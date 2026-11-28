@@ -31,6 +31,8 @@ android {
             val storeFile = System.getenv("ABYSS_PLUGIN_KEYSTORE_FILE")
             if (storeFile != null) {
                 this.storeFile = file(storeFile)
+                // keystore 为 PKCS12(python cryptography 产,30 年自签)
+                storeType = "PKCS12"
                 storePassword = System.getenv("ABYSS_PLUGIN_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ABYSS_PLUGIN_KEY_ALIAS")
                 keyPassword = System.getenv("ABYSS_PLUGIN_KEY_PASSWORD")

@@ -55,6 +55,25 @@ jobs:
       # 签名材料经 secrets 注入（N-APP-001 FR-004：插件独立 keystore）；
       # 缺失时 release 降级 unsigned —— 编译门禁照常，发布门禁由
       # Release 步骤的指纹校验兜底（与主仓 ci.yml 同模式）。
+      # ── 插件签名材料注入(N-APP-001 FR-004:PKCS12 经 secrets)────
+      # 缺失时保持 unsigned 兜底语义(编译门禁照常)
+      - name: Decode plugin keystore (secrets)
+        env:
+          ABYSS_PLUGIN_KEYSTORE_B64: ${{ secrets.ABYSS_PLUGIN_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$ABYSS_PLUGIN_KEYSTORE_B64" ]; then
+            KS_DIR="$RUNNER_TEMP/abyss-plugin-signing"
+            mkdir -p "$KS_DIR"
+            printf '%s' "$ABYSS_PLUGIN_KEYSTORE_B64" | base64 -d > "$KS_DIR/plugin-release.p12"
+            echo "ABYSS_PLUGIN_KEYSTORE_FILE=$KS_DIR/plugin-release.p12" >> "$GITHUB_ENV"
+            echo "ABYSS_PLUGIN_KEYSTORE_PASSWORD=$ABYSS_PLUGIN_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ABYSS_PLUGIN_KEY_ALIAS=$ABYSS_PLUGIN_KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ABYSS_PLUGIN_KEY_PASSWORD=$ABYSS_PLUGIN_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "插件签名材料已注入(PKCS12)"
+          else
+            echo "::warning::未配置 ABYSS_PLUGIN_KEYSTORE_B64 —— release 产 unsigned 包"
+          fi
+
       - name: Assemble debug + release（unsigned 兜底）
         run: gradle assembleDebug assembleRelease --stacktrace
 
